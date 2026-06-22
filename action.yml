@@ -1,0 +1,100 @@
+name: "Setup Atestum"
+description: >-
+  Bootstrap a per-run Atestum credential (Biscuit) for a CI workflow. Generates
+  an ephemeral keypair, claims a per-run Biscuit derived from your signed
+  WorkflowDelegationCredential, and exports ATESTUM_BISCUIT + ATESTUM_PROOF_KEY
+  for later steps.
+author: "Atestum"
+
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  tenant:
+    description: "Atestum tenant id (or slug) the workflow belongs to."
+    required: true
+  api-url:
+    description: "Base URL of the Atestum control plane that serves /v1/ci/claim."
+    required: false
+    default: "https://api.atestum.com"
+  gateway:
+    description: >-
+      Atestum gateway base URL the runtime credential targets. Exported as
+      $ATESTUM_GATEWAY for later steps; not required to claim.
+    required: false
+    default: ""
+  github-token:
+    description: >-
+      The run's GITHUB_TOKEN, used by Atestum only as proof of run identity
+      (it is validated against the GitHub Workflow Run API, never trusted for
+      authorization). Defaults to the automatic token; pass `${{ github.token }}`
+      explicitly if you have customized token handling. Requires `actions: read`
+      permission so Atestum can verify the run.
+    required: false
+    default: ${{ github.token }}
+  installation-id:
+    description: >-
+      Numeric id of the Atestum GitHub App installation on your org. When set
+      together with job-id, the action uses the low-latency webhook pre-mint
+      path. Leave empty to use the on-demand mint path (one synchronous parent
+      VC lookup).
+    required: false
+    default: ""
+  job-id:
+    description: >-
+      Numeric workflow_job id for this job (the id in the workflow_job webhook
+      payload, NOT the GITHUB_JOB config key). Optional; leave empty to use the
+      on-demand mint path. GitHub does not expose this as a default runner
+      variable, so supply it only if you have looked it up via the Actions API.
+    required: false
+    default: ""
+  on-demand:
+    description: >-
+      Force the synchronous on-demand mint path, skipping the webhook pre-mint
+      cache lookup. Automatically used when installation-id or job-id is empty.
+    required: false
+    default: "false"
+  retries:
+    description: >-
+      Number of claim attempts on the webhook pre-mint path before falling back
+      to on-demand (covers the webhook-delivery race). Ignored on the on-demand
+      path.
+    required: false
+    default: "3"
+
+outputs:
+  biscuit:
+    description: "The per-run Atestum Biscuit credential (also exported as $ATESTUM_BISCUIT, masked)."
+    value: ${{ steps.claim.outputs.biscuit }}
+  proof-key:
+    description: "Path to the ephemeral Ed25519 private key file (also exported as $ATESTUM_PROOF_KEY)."
+    value: ${{ steps.claim.outputs.proof-key }}
+  did:
+    description: "The workflow run's Atestum DID."
+    value: ${{ steps.claim.outputs.did }}
+  parent-vc-id:
+    description: "Id/URL of the WorkflowDelegationCredential this Biscuit was derived from."
+    value: ${{ steps.claim.outputs.parent-vc-id }}
+  expires-at:
+    description: "RFC 3339 expiry of the per-run Biscuit."
+    value: ${{ steps.claim.outputs.expires-at }}
+  audience:
+    description: "The audience the credential is bound to (gateway/MCP)."
+    value: ${{ steps.claim.outputs.audience }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: claim
+      shell: bash
+      run: "$GITHUB_ACTION_PATH/scripts/claim.sh"
+      env:
+        INPUT_TENANT: ${{ inputs.tenant }}
+        INPUT_API_URL: ${{ inputs.api-url }}
+        INPUT_GATEWAY: ${{ inputs.gateway }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_INSTALLATION_ID: ${{ inputs.installation-id }}
+        INPUT_JOB_ID: ${{ inputs.job-id }}
+        INPUT_ON_DEMAND: ${{ inputs.on-demand }}
+        INPUT_RETRIES: ${{ inputs.retries }}
