@@ -17,7 +17,13 @@ inputs:
   api-url:
     description: "Base URL of the Atestum control plane that serves /v1/ci/claim."
     required: false
-    default: "https://api.atestum.com"
+    # Bare `atestum.com`, NOT `api.atestum.com` -- the latter doesn't route
+    # anywhere (confirmed live 2026-09-03: every real call against it 404'd
+    # at the gateway, while the identical request against `atestum.com`
+    # reached atestum-server's own validation logic correctly). Matches the
+    # hostname the OLD claim path's client action
+    # (publier/releases/.github/actions/publier-ci-claim) has always used.
+    default: "https://atestum.com"
   gateway:
     description: >-
       Atestum gateway base URL the runtime credential targets. Exported as

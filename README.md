@@ -69,7 +69,7 @@ The credential is also available as step outputs if you prefer them to env vars:
 | Input             | Required | Default                 | Description |
 | ----------------- | -------- | ----------------------- | ----------- |
 | `tenant`          | yes      | —                       | Atestum tenant id (or slug) the workflow belongs to. |
-| `api-url`         | no       | `https://api.atestum.com` | Base URL of the Atestum control plane that serves `/v1/ci/claim`. |
+| `api-url`         | no       | `https://atestum.com` | Base URL of the Atestum control plane that serves `/v1/ci/claim`. |
 | `gateway`         | no       | `""`                    | Atestum gateway base URL the credential targets. Exported as `$ATESTUM_GATEWAY`. |
 | `github-token`    | no       | `${{ github.token }}`   | The run's `GITHUB_TOKEN`, used **only** as proof of run identity. Requires `actions: read`. |
 | `installation-id` | no       | `""`                    | Numeric id of the Atestum GitHub App installation. Set with `job-id` for the low-latency pre-mint path; leave empty for the on-demand path. |
