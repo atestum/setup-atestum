@@ -28,11 +28,18 @@ inputs:
     description: >-
       The run's GITHUB_TOKEN, used by Atestum only as proof of run identity
       (it is validated against the GitHub Workflow Run API, never trusted for
-      authorization). Defaults to the automatic token; pass `${{ github.token }}`
-      explicitly if you have customized token handling. Requires `actions: read`
+      authorization). Defaults to the automatic token; pass a token explicitly
+      if you have customized token handling. Requires `actions: read`
       permission so Atestum can verify the run.
     required: false
-    default: ${{ github.token }}
+    # No `default:` here -- an input's default is evaluated at action-metadata
+    # load time, before the calling workflow's `github` context exists, so
+    # `${{ github.token }}` here fails the whole action at "Set up job" with
+    # "Unrecognized named-value: 'github'" (confirmed live 2026-09-03: every
+    # single caller of this action has failed at this exact step since it
+    # shipped). The `github.token` fallback lives in the step `env:` below
+    # instead, where the calling workflow's context IS available.
+    default: ""
   installation-id:
     description: >-
       Numeric id of the Atestum GitHub App installation on your org. When set
@@ -93,7 +100,7 @@ runs:
         INPUT_TENANT: ${{ inputs.tenant }}
         INPUT_API_URL: ${{ inputs.api-url }}
         INPUT_GATEWAY: ${{ inputs.gateway }}
-        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
         INPUT_INSTALLATION_ID: ${{ inputs.installation-id }}
         INPUT_JOB_ID: ${{ inputs.job-id }}
         INPUT_ON_DEMAND: ${{ inputs.on-demand }}
