@@ -16,7 +16,9 @@
 #
 # Required environment (set by action.yml from the action inputs / runner ctx):
 #   INPUT_API_URL          Base URL of the Atestum control plane (e.g. https://api.atestum.com)
-#   INPUT_TENANT           Atestum tenant id / slug the workflow belongs to
+#   INPUT_TENANT           Optional -- Atestum tenant id / slug. GITHUB_REPOSITORY alone
+#                          resolves the connected tenant server-side; set this only for an
+#                          extra integrity check.
 #   INPUT_GATEWAY          Atestum gateway base URL the credential targets (exported for later steps)
 #   INPUT_GITHUB_TOKEN     The run's GITHUB_TOKEN (proof of run identity)
 #   INPUT_INSTALLATION_ID  Atestum GitHub App installation id (optional; "" => on-demand path)
@@ -39,8 +41,11 @@ for tool in openssl curl jq base64 sha256sum; do
 done
 
 : "${INPUT_API_URL:?api-url input is required}"
-: "${INPUT_TENANT:?tenant input is required}"
 : "${INPUT_GITHUB_TOKEN:?github-token input is required (default: \${{ github.token }})}"
+# tenant is optional -- GITHUB_REPOSITORY alone resolves your connected
+# tenant server-side (a repo is actively connected to at most one tenant at
+# a time). Set INPUT_TENANT only if you want an extra integrity check.
+INPUT_TENANT="${INPUT_TENANT:-}"
 
 # Trim a trailing slash off the API base so we never produce a // in the path.
 API_URL="${INPUT_API_URL%/}"
@@ -94,7 +99,10 @@ RETRIES="${INPUT_RETRIES:-3}"
 
 build_body() {
   # $1 = on_demand (true|false). jq builds the body so all strings are escaped
-  # correctly and the numeric fields stay numeric.
+  # correctly and the numeric fields stay numeric. `tenant` is OMITTED
+  # entirely (not sent as an empty string) when unset -- the server resolves
+  # it from `repository` alone; an empty-string tenant would instead be
+  # treated as a (wrong) integrity assertion and rejected.
   jq -cn \
     --arg tenant "$INPUT_TENANT" \
     --argjson installation_id "$INSTALLATION_ID" \
@@ -107,7 +115,6 @@ build_body() {
     --arg github_token "$INPUT_GITHUB_TOKEN" \
     --argjson on_demand "$1" \
     '{
-      tenant: $tenant,
       installation_id: $installation_id,
       repository: $repository,
       run_id: $run_id,
@@ -117,7 +124,7 @@ build_body() {
       workflow_pubkey: $workflow_pubkey,
       github_token: $github_token,
       on_demand: $on_demand
-    }'
+    } + (if ($tenant | length) > 0 then {tenant: $tenant} else {} end)'
 }
 
 # do_claim <on_demand> -> prints HTTP status on its own line, writes the body

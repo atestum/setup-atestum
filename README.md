@@ -34,9 +34,10 @@ jobs:
     steps:
       - uses: Atestum/setup-atestum@v1
         with:
-          tenant: acme-corp
           gateway: https://gateway.example.com
         # exports $ATESTUM_BISCUIT and $ATESTUM_PROOF_KEY for later steps
+        # (your tenant is resolved from this repo's own connection --
+        # no `tenant:` input needed unless you want an extra integrity check)
 
       - name: Call a protected MCP server
         run: |
@@ -59,8 +60,6 @@ The credential is also available as step outputs if you prefer them to env vars:
 ```yaml
       - uses: Atestum/setup-atestum@v1
         id: atestum
-        with:
-          tenant: acme-corp
       - run: echo "Acquired credential for ${{ steps.atestum.outputs.did }}"
 ```
 
@@ -68,7 +67,7 @@ The credential is also available as step outputs if you prefer them to env vars:
 
 | Input             | Required | Default                 | Description |
 | ----------------- | -------- | ----------------------- | ----------- |
-| `tenant`          | yes      | —                       | Atestum tenant id (or slug) the workflow belongs to. |
+| `tenant`          | no       | `""`                    | Atestum tenant id (or slug), for an extra integrity check. Omit it — your repository's own connection already uniquely resolves your tenant server-side. |
 | `api-url`         | no       | `https://atestum.com` | Base URL of the Atestum control plane that serves `/v1/ci/claim`. |
 | `gateway`         | no       | `""`                    | Atestum gateway base URL the credential targets. Exported as `$ATESTUM_GATEWAY`. |
 | `github-token`    | no       | `${{ github.token }}`   | The run's `GITHUB_TOKEN`, used **only** as proof of run identity. Requires `actions: read`. |
@@ -104,13 +103,14 @@ For later `run:` steps in the same job:
 1. **Ephemeral keypair.** The action generates an Ed25519 keypair in tmpfs
    (`/dev/shm`, falling back to `RUNNER_TEMP`). The private key is created
    `0600` and never leaves the runner — only its *path* is exported.
-2. **Claim.** It POSTs the run identity (`tenant`, `repository`, `run_id`,
-   `run_attempt`, `head_sha`, the public key, and the `github_token`) to
-   `POST <api-url>/v1/ci/claim`.
+2. **Claim.** It POSTs the run identity (`repository`, `run_id`,
+   `run_attempt`, `head_sha`, the public key, the `github_token`, and
+   `tenant` if you set it) to `POST <api-url>/v1/ci/claim`.
 3. **Verification.** Atestum validates the `GITHUB_TOKEN` against
    `GET /repos/{repo}/actions/runs/{run_id}`, cross-checks `run_id` /
-   `head_sha` / `repository`, then returns a per-run Biscuit derived from your
-   signed `WorkflowDelegationCredential`.
+   `head_sha` / `repository`, resolves your tenant from `repository` (a repo
+   is actively connected to at most one tenant at a time), then returns a
+   per-run Biscuit derived from your signed `WorkflowDelegationCredential`.
 4. **Export.** The Biscuit and the key path are masked and written to
    `$GITHUB_ENV` and to the step outputs.
 

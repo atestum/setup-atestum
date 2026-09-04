@@ -12,8 +12,13 @@ branding:
 
 inputs:
   tenant:
-    description: "Atestum tenant id (or slug) the workflow belongs to."
-    required: true
+    description: >-
+      Atestum tenant id (or slug) the workflow belongs to. Optional -- your
+      repository's full name (owner/repo, from GITHUB_REPOSITORY) already
+      uniquely resolves your connected tenant server-side, since a repo can
+      only be actively connected to one tenant at a time. Only set this if
+      you want an extra integrity check against a specific tenant id.
+    required: false
   api-url:
     description: "Base URL of the Atestum control plane that serves /v1/ci/claim."
     required: false
