@@ -89,13 +89,35 @@ PUBKEY_B64="$(openssl pkey -in "$KEY_FILE" -pubout -outform DER | base64 | tr -d
 # ---------------------------------------------------------------------------
 RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
 INSTALLATION_ID="${INPUT_INSTALLATION_ID:-0}"
-JOB_ID="${INPUT_JOB_ID:-0}"
 ON_DEMAND="${INPUT_ON_DEMAND:-false}"
 RETRIES="${INPUT_RETRIES:-3}"
 
-# Default to numeric 0 when an id input was left blank.
+# Default to numeric 0 when installation_id was left blank -- it never
+# disambiguates concurrent jobs anyway (one GitHub App install per repo, so
+# every job in a run shares the same real value when one exists).
 [ -z "$INSTALLATION_ID" ] && INSTALLATION_ID=0
-[ -z "$JOB_ID" ] && JOB_ID=0
+
+# job_id is different: on the on-demand path it is the ONLY per-request field
+# that can distinguish concurrent claims within the same run+attempt --
+# atestum-server's on_demand_nonce hashes installation_id:run_id:run_attempt
+# :job_id, and installation_id/run_id/run_attempt are identical for every job
+# in one run by construction. A caller with no real webhook-sourced job id
+# (every current caller of this action, including publier-ci-claim) must NOT
+# send the same constant for concurrent jobs, or the second job's claim
+# collides with the first's ("CLAIM-003: ticket already consumed"). Confirmed
+# live 2026-09-07: 3 of 4 parallel jobs in publier/publier's scaffold-smoke
+# matrix failed this way after every job sent the shared job_id=0 default.
+# When the caller supplies a real one, use it verbatim (it feeds the webhook
+# pre-mint lookup below). Otherwise synthesize a fresh per-invocation value --
+# it only needs to be distinct from any other concurrently-running claim in
+# this run+attempt, not a real GitHub identifier (the on-demand path already
+# means "no real webhook-sourced ids are available").
+JOB_ID_PROVIDED=true
+JOB_ID="${INPUT_JOB_ID:-}"
+if [ -z "$JOB_ID" ] || [ "$JOB_ID" = "0" ]; then
+  JOB_ID_PROVIDED=false
+  JOB_ID="$((RANDOM * 32768 * 32768 + RANDOM * 32768 + RANDOM))"
+fi
 
 build_body() {
   # $1 = on_demand (true|false). jq builds the body so all strings are escaped
@@ -155,7 +177,7 @@ HTTP_CODE=""
 attempt=0
 backoff=0.25
 
-if [ "$ON_DEMAND" = "true" ] || [ "$INSTALLATION_ID" = "0" ] || [ "$JOB_ID" = "0" ]; then
+if [ "$ON_DEMAND" = "true" ] || [ "$INSTALLATION_ID" = "0" ] || [ "$JOB_ID_PROVIDED" = "false" ]; then
   # No way to hit the pre-minted cache tuple — go straight to on-demand.
   echo "Atestum: claiming credential (on-demand mint path)..."
   HTTP_CODE="$(do_claim true)"
