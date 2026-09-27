@@ -105,7 +105,11 @@ For later `run:` steps in the same job:
    `0600` and never leaves the runner — only its *path* is exported.
 2. **Claim.** It POSTs the run identity (`repository`, `run_id`,
    `run_attempt`, `head_sha`, the public key, the `github_token`, and
-   `tenant` if you set it) to `POST <api-url>/v1/ci/claim`.
+   `tenant` if you set it) to `POST <api-url>/v1/ci/claim`. On
+   `pull_request`-family events `head_sha` is the pull request's own head
+   commit (from the event payload), not `GITHUB_SHA`'s test-merge or base
+   commit, because that is the commit GitHub's Workflow Run API reports for
+   the run.
 3. **Verification.** Atestum validates the `GITHUB_TOKEN` against
    `GET /repos/{repo}/actions/runs/{run_id}`, cross-checks `run_id` /
    `head_sha` / `repository`, resolves your tenant from `repository` (a repo

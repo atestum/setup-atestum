@@ -26,6 +26,7 @@
 #   INPUT_ON_DEMAND        "true" to force the synchronous on-demand mint path
 #   INPUT_RETRIES          Claim retry attempts before falling back to on-demand
 #   GITHUB_REPOSITORY GITHUB_RUN_ID GITHUB_RUN_ATTEMPT GITHUB_SHA  (runner defaults)
+#   GITHUB_EVENT_PATH  (runner default; PR head SHA on pull_request* events)
 #   GITHUB_ENV GITHUB_OUTPUT RUNNER_TEMP                            (runner defaults)
 #
 set -euo pipefail
@@ -119,6 +120,22 @@ if [ -z "$JOB_ID" ] || [ "$JOB_ID" = "0" ]; then
   JOB_ID="$((RANDOM * 32768 * 32768 + RANDOM * 32768 + RANDOM))"
 fi
 
+# head_sha must equal what GitHub's Workflow Run API reports as the run's
+# `head_sha` -- the server compares the two verbatim (a mismatch is CLAIM-002).
+# GITHUB_SHA is that value on push-style events, but NOT on the pull_request
+# family: on `pull_request` it is the synthetic test-merge commit
+# (refs/pull/N/merge), and on `pull_request_target` it is the base branch's
+# latest commit, while the Workflow Run API reports the PR's own head commit
+# for both. So every pull_request-triggered claim was rejected with CLAIM-002
+# while push runs of the same commit succeeded. Any event whose payload
+# carries a pull request takes the head SHA from that payload instead; every
+# other event keeps GITHUB_SHA.
+HEAD_SHA="$GITHUB_SHA"
+if [ -n "${GITHUB_EVENT_PATH:-}" ] && [ -r "$GITHUB_EVENT_PATH" ]; then
+  PR_HEAD_SHA="$(jq -r '.pull_request.head.sha // empty' "$GITHUB_EVENT_PATH" 2>/dev/null || true)"
+  [ -n "$PR_HEAD_SHA" ] && HEAD_SHA="$PR_HEAD_SHA"
+fi
+
 build_body() {
   # $1 = on_demand (true|false). jq builds the body so all strings are escaped
   # correctly and the numeric fields stay numeric. `tenant` is OMITTED
@@ -132,7 +149,7 @@ build_body() {
     --argjson run_id "$GITHUB_RUN_ID" \
     --argjson run_attempt "$RUN_ATTEMPT" \
     --argjson job_id "$JOB_ID" \
-    --arg head_sha "$GITHUB_SHA" \
+    --arg head_sha "$HEAD_SHA" \
     --arg workflow_pubkey "$PUBKEY_B64" \
     --arg github_token "$INPUT_GITHUB_TOKEN" \
     --argjson on_demand "$1" \
