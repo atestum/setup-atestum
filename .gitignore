@@ -1,2 +1,6 @@
-# Developer-local Claude Code instructions; never committed
+# Machine-local agent config and instructions; never committed
+.claude/
+.agents/
+AGENTS.md
+CLAUDE.md
 CLAUDE.local.md
