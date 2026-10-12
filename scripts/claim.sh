@@ -15,7 +15,7 @@
 # never prints either to stdout.
 #
 # Required environment (set by action.yml from the action inputs / runner ctx):
-#   INPUT_API_URL          Base URL of the Atestum control plane (e.g. https://api.atestum.com)
+#   INPUT_API_URL          Base URL of the Atestum control plane (e.g. https://atestum.com)
 #   INPUT_TENANT           Optional -- Atestum tenant id / slug. GITHUB_REPOSITORY alone
 #                          resolves the connected tenant server-side; set this only for an
 #                          extra integrity check.
@@ -99,15 +99,15 @@ RETRIES="${INPUT_RETRIES:-3}"
 [ -z "$INSTALLATION_ID" ] && INSTALLATION_ID=0
 
 # job_id is different: on the on-demand path it is the ONLY per-request field
-# that can distinguish concurrent claims within the same run+attempt --
-# atestum-server's on_demand_nonce hashes installation_id:run_id:run_attempt
-# :job_id, and installation_id/run_id/run_attempt are identical for every job
-# in one run by construction. A caller with no real webhook-sourced job id
-# (every current caller of this action, including publier-ci-claim) must NOT
-# send the same constant for concurrent jobs, or the second job's claim
-# collides with the first's ("CLAIM-003: ticket already consumed"). Confirmed
-# live 2026-09-07: 3 of 4 parallel jobs in publier/publier's scaffold-smoke
-# matrix failed this way after every job sent the shared job_id=0 default.
+# that can distinguish concurrent claims within the same run+attempt -- the
+# on-demand claim's single-use ticket is keyed on installation_id:run_id:
+# run_attempt:job_id, and installation_id/run_id/run_attempt are identical for
+# every job in one run by construction. A caller with no real webhook-sourced
+# job id (GitHub does not expose one as a runner variable, so any caller that
+# has not looked it up) must NOT send the same constant for concurrent jobs,
+# or the second job's claim collides with the first's ("CLAIM-003: ticket
+# already consumed"); parallel jobs in a matrix failed this way when every job
+# sent the shared job_id=0 default.
 # When the caller supplies a real one, use it verbatim (it feeds the webhook
 # pre-mint lookup below). Otherwise synthesize a fresh per-invocation value --
 # it only needs to be distinct from any other concurrently-running claim in

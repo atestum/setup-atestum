@@ -22,12 +22,8 @@ inputs:
   api-url:
     description: "Base URL of the Atestum control plane that serves /v1/ci/claim."
     required: false
-    # Bare `atestum.com`, NOT `api.atestum.com` -- the latter doesn't route
-    # anywhere (confirmed live 2026-09-03: every real call against it 404'd
-    # at the gateway, while the identical request against `atestum.com`
-    # reached atestum-server's own validation logic correctly). Matches the
-    # hostname the OLD claim path's client action
-    # (publier/releases/.github/actions/publier-ci-claim) has always used.
+    # The bare `atestum.com` host, not an `api.` subdomain: the claim endpoint
+    # is served on `atestum.com` itself.
     default: "https://atestum.com"
   gateway:
     description: >-
@@ -46,10 +42,9 @@ inputs:
     # No `default:` here -- an input's default is evaluated at action-metadata
     # load time, before the calling workflow's `github` context exists, so
     # `${{ github.token }}` here fails the whole action at "Set up job" with
-    # "Unrecognized named-value: 'github'" (confirmed live 2026-09-03: every
-    # single caller of this action has failed at this exact step since it
-    # shipped). The `github.token` fallback lives in the step `env:` below
-    # instead, where the calling workflow's context IS available.
+    # "Unrecognized named-value: 'github'". The `github.token` fallback lives
+    # in the step `env:` below instead, where the calling workflow's context
+    # IS available.
     default: ""
   installation-id:
     description: >-
