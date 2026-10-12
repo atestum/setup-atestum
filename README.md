@@ -1,5 +1,12 @@
 # setup-atestum
 
+> **Retired 2026-10-12. Do not use this action.** It claimed a per-run
+> credential from `POST /v1/ci/claim` on the Atestum service. That endpoint, and
+> the `WorkflowDelegationCredential` it derived the credential from, have been
+> removed, so every run of this action now fails at the claim step. The text
+> below describes the action as it worked before the removal and is kept for
+> reference only.
+
 A GitHub Action that bootstraps a per-run **Atestum credential** for a CI
 workflow.
 

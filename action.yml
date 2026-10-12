@@ -1,6 +1,7 @@
 name: "Setup Atestum"
 description: >-
-  Bootstrap a per-run Atestum credential (Biscuit) for a CI workflow. Generates
+  RETIRED 2026-10-12, do not use: the claim endpoint it called has been removed.
+  Formerly: bootstrap a per-run Atestum credential (Biscuit) for a CI workflow. Generates
   an ephemeral keypair, claims a per-run Biscuit derived from your signed
   WorkflowDelegationCredential, and exports ATESTUM_BISCUIT + ATESTUM_PROOF_KEY
   for later steps.
